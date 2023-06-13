@@ -13,7 +13,7 @@ SAVED_DIR = "/opt/ml/input/code/trained_model/"
 if not os.path.isdir(SAVED_DIR):                                                           
     os.mkdir(SAVED_DIR)
 
-def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30, VAL_EVERY = 1, folder_name = 'last_model', RANDOM_SEED = 21):
+def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30, VAL_EVERY = 1, folder_name = 'last_model', RANDOM_SEED = 21,PATIENCE=5):
     print(f'Start training..')
     set_seed(RANDOM_SEED)
 
@@ -46,6 +46,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30
     n_class = 29
     best_dice = 0.
     loss = 0
+    early_stop=0
     
     for epoch in range(NUM_EPOCHS):
         print(
@@ -94,7 +95,15 @@ def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
                 print(f"Save model in {os.path.join(SAVED_DIR, folder_name)}")
                 best_dice = dice
+                early_stop=0
                 save_best_model(model, folder_name)
+            else:
+                print('No update')
+                print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f}")
+                early_stop+=1
+                if early_stop>=PATIENCE and best_dice>0.5:
+                    print("No more update")
+                    break
         wandb.log({"sum/train_loss": loss, "sum/dice_coef": dice, "parameter/lr" : optimizer.param_groups[0]['lr']}, step = epoch + 1)
     return folder_name
 
