@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 import pandas as pd
+from collections import OrderedDict
 from tqdm.auto import tqdm
 
 import torch
@@ -79,6 +80,8 @@ def test(model, data_loader, thr=0.5):
         for step, (images, image_names) in tqdm(enumerate(data_loader), total=len(data_loader)):
             images = images.cuda()    
             outputs = model(images)
+            if type(outputs) == type(OrderedDict()):
+                outputs = outputs['out']
             
             # restore original size
             outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")
