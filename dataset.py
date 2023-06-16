@@ -99,11 +99,10 @@ class XRayDataset(Dataset):
             image = transformed['image']
             label = transformed['mask']
             image = np.array(image).astype(np.uint64)
-            
-        image = image / 255.
 
         # to tenser will be done later
         image = image.transpose(2, 0, 1)    # make channel first
+        image = image / 255.
         label = label.transpose(2, 0, 1)
         
         image = torch.from_numpy(image).float()
