@@ -1,4 +1,4 @@
-from validation import validation
+from validation_best_class_save import validation
 from setseed import set_seed
 
 import os
