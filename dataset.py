@@ -3,7 +3,7 @@ import cv2
 import json
 import torch
 import numpy as np
-
+import albumentations as A
 from sklearn.model_selection import GroupKFold
 
 from torch.utils.data import Dataset
@@ -51,6 +51,7 @@ class XRayDataset(Dataset):
         self.labelnames = labelnames
         self.is_train = is_train
         self.preprocess = preprocess
+        self.augmentation = augmentation
     
     def __len__(self):
         return len(self.filenames)
@@ -60,7 +61,6 @@ class XRayDataset(Dataset):
         image_path = os.path.join(IMAGE_ROOT, image_name)
         
         image = cv2.imread(image_path)
-        image = image / 255.
         
         label_name = self.labelnames[item]
         label_path = os.path.join(LABEL_ROOT, label_name)
@@ -91,6 +91,16 @@ class XRayDataset(Dataset):
             
             image = result["image"]
             label = result["mask"] if self.is_train else label
+            
+        if self.augmentation is not None and self.is_train:
+            image = np.array(image).astype(np.uint8)
+            transform = A.Compose(self.augmentation)
+            transformed = transform(image=image, mask=label)
+            image = transformed['image']
+            label = transformed['mask']
+            image = np.array(image).astype(np.uint64)
+            
+        image = image / 255.
 
         # to tenser will be done later
         image = image.transpose(2, 0, 1)    # make channel first
@@ -123,25 +133,24 @@ CLASS2IND = {v: i for i, v in enumerate(CLASSES)}
     
 IND2CLASS = {v: k for k, v in CLASS2IND.items()}
 
-pngs = {
-        os.path.relpath(os.path.join(root, fname), start=IMAGE_ROOT)
-        for root, _dirs, files in os.walk(IMAGE_ROOT)
-        for fname in files
-        if os.path.splitext(fname)[1].lower() == ".png"
-}
+pngs = []
+for folder in os.listdir(IMAGE_ROOT):
+    for file in os.listdir(IMAGE_ROOT +"/"+ folder):
+        if file[-3:].lower() == "png":
+            file_path = folder + "/" + file
+            pngs.append(file_path)
+pngs.sort()
     
-jsons = {
-        os.path.relpath(os.path.join(root, fname), start=LABEL_ROOT)
-        for root, _dirs, files in os.walk(LABEL_ROOT)
-        for fname in files
-        if os.path.splitext(fname)[1].lower() == ".json"
-}
+jsons = []
+for folder in os.listdir(LABEL_ROOT):
+    for file in os.listdir(LABEL_ROOT +"/"+ folder):
+        if file[-4:].lower() == "json":
+            file_path = folder + "/" + file
+            jsons.append(file_path)
+json.sort()
     
 jsons_fn_prefix = {os.path.splitext(fname)[0] for fname in jsons}
 pngs_fn_prefix = {os.path.splitext(fname)[0] for fname in pngs}
     
 assert len(jsons_fn_prefix - pngs_fn_prefix) == 0
 assert len(pngs_fn_prefix - jsons_fn_prefix) == 0
-    
-pngs = sorted(pngs)
-jsons = sorted(jsons)
