@@ -98,7 +98,6 @@ class XRayDataset(Dataset):
             transformed = transform(image=image, mask=label)
             image = transformed['image']
             label = transformed['mask']
-            image = np.array(image).astype(np.uint64)
             
 
 

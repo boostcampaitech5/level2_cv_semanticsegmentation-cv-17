@@ -98,7 +98,7 @@ class XRayDataset(Dataset):
             transformed = transform(image=image, mask=label)
             image = transformed['image']
             label = transformed['mask']
-            image = np.array(image).astype(np.uint64)
+
 
         # to tenser will be done later
         image = image.transpose(2, 0, 1)    # make channel first

@@ -105,6 +105,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30
                     print("No more update")
                     break
         wandb.log({"sum/train_loss": loss, "sum/dice_coef": dice, "parameter/lr" : optimizer.param_groups[0]['lr']}, step = epoch + 1)
+    wandb.finish()
     return folder_name
 
 def save_best_model(model, folder_name):
