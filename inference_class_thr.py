@@ -13,6 +13,8 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision import models
 
+import albumentations as A
+
 def encode_mask_to_rle(mask):
     '''
     mask: numpy array binary mask 
@@ -68,7 +70,7 @@ class XRayInferenceDataset(Dataset):
             
         return image, image_name
 
-def test(model, data_loader, thr=0.5):
+def test(model, data_loader, thr):
     model = model.cuda()
     model.eval()
 
@@ -86,9 +88,20 @@ def test(model, data_loader, thr=0.5):
             # restore original size
             outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")
             outputs = torch.sigmoid(outputs)
-            outputs = (outputs > thr).detach().cpu().numpy()
+
+            outputs_class = []
+            for i in range(2):
+                output_one = []
+                for j in range(29):
+                    output_one.append((outputs[i][j] > thr[j]).detach().cpu().numpy())
+                outputs_class.append(np.array(output_one))
+
             
-            for output, image_name in zip(outputs, image_names):
+            outputs_class = np.array(outputs_class)
+
+            #outputs = (outputs > thr).detach().cpu().numpy()
+            
+            for output, image_name in zip(outputs_class, image_names):
                 for c, segm in enumerate(output):
                     rle = encode_mask_to_rle(segm)
                     rles.append(rle)
@@ -96,10 +109,8 @@ def test(model, data_loader, thr=0.5):
                     
     return rles, filename_and_class
 
-def inference(folder_name, preprocess):
-    SAVED_DIR = "/opt/ml/input/code/trained_model/"
-    model = torch.load(os.path.join(SAVED_DIR, folder_name + '/best.pt'))
-    
+def inference(folder_name, preprocess = A.Resize(512, 512), thr = [0.5] * 29, SAVED_DIR = "/opt/ml/input/code/trained_model/"):
+    model = torch.load(os.path.join(SAVED_DIR, folder_name) + "/best.pt")
     
     test_dataset = XRayInferenceDataset(transforms=preprocess)
     test_loader = DataLoader(
@@ -109,7 +120,8 @@ def inference(folder_name, preprocess):
         num_workers=2,
         drop_last=False
     )
-    rles, filename_and_class = test(model, test_loader)
+    print(f'Start Inference')
+    rles, filename_and_class = test(model, test_loader, thr)
     
     classes, filename = zip(*[x.split("_") for x in filename_and_class])
     image_name = [os.path.basename(f) for f in filename]
@@ -118,7 +130,10 @@ def inference(folder_name, preprocess):
         "class": classes,
         "rle": rles,
     })
-    df.to_csv("output.csv", index=False)
+    os.path.join(SAVED_DIR, folder_name)
+    df.to_csv(os.path.join(SAVED_DIR, folder_name) + '/output_class.csv', index=False)
+    print(f'Inference Done')
+    print(f'Result saved in {os.path.join(SAVED_DIR, folder_name)} as output.csv')
 
 IMAGE_ROOT = "/opt/ml/input/data/test/DCM"
 

@@ -1,4 +1,4 @@
-from validation import validation
+from validation_best_class_save import validation
 from setseed import set_seed
 
 import os
@@ -10,6 +10,15 @@ import datetime
 import wandb
 
 SAVED_DIR = "/opt/ml/input/code/trained_model/"
+CLASSES = [
+    'finger-1', 'finger-2', 'finger-3', 'finger-4', 'finger-5',
+    'finger-6', 'finger-7', 'finger-8', 'finger-9', 'finger-10',
+    'finger-11', 'finger-12', 'finger-13', 'finger-14', 'finger-15',
+    'finger-16', 'finger-17', 'finger-18', 'finger-19', 'Trapezium',
+    'Trapezoid', 'Capitate', 'Hamate', 'Scaphoid', 'Lunate',
+    'Triquetrum', 'Pisiform', 'Radius', 'Ulna',
+]
+
 if not os.path.isdir(SAVED_DIR):                                                           
     os.mkdir(SAVED_DIR)
 
@@ -30,6 +39,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30
 
     wandb.init(
         # set the wandb project where this run will be logged
+        entity = 'sixseg_semantic_seg',
         project="boostcamp_level2_semantic_segmentation",
         name = folder_name,
         
@@ -45,9 +55,12 @@ def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30
     
     n_class = 29
     best_dice = 0.
+    best_dice_epoch = 0
+    best_dices_per_class = [0. for _ in range(29)]
+    best_dices_per_class_epoch = [0 for _ in range(29)]
     loss = 0
     early_stop=0
-    
+
     for epoch in range(NUM_EPOCHS):
         print(
             f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
@@ -89,22 +102,38 @@ def train(model, train_loader, val_loader, criterion, optimizer, NUM_EPOCHS = 30
              
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % VAL_EVERY == 0:
-            dice = validation(epoch + 1, model, val_loader, criterion, RANDOM_SEED, 0.5)
+            dice, dices_per_class = validation(epoch + 1, model, val_loader, criterion, RANDOM_SEED, 0.5)
+
+            for i in range(29):
+                if best_dices_per_class[i] < dices_per_class[i].item():
+                    print(f"{CLASSES[i]:<12}: {dices_per_class[i].item():.4f}")
+                    best_dices_per_class[i] = dices_per_class[i].item()
+                    save_best_class_model(model, folder_name, i)
+                    best_dices_per_class_epoch[i] = epoch + 1
+                else:
+                    print(f"{CLASSES[i]:<12}: {dices_per_class[i].item():.4f}")
             
             if best_dice < dice:
-                print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
+                print(f"New best average dice coefficient at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
                 print(f"Save model in {os.path.join(SAVED_DIR, folder_name)}")
                 best_dice = dice
-                early_stop=0
+                best_dice_epoch = epoch + 1
+                early_stop = 0
                 save_best_model(model, folder_name)
             else:
-                print('No update')
-                print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f}")
-                early_stop+=1
-                if early_stop>=PATIENCE and best_dice>0.5:
+                print(f"Performance at epoch: {epoch + 1}, {dice:.4f}")
+                print(f"Best performance was at epoch: {best_dice_epoch}, {best_dice:.4f}")
+                early_stop += 1
+                if early_stop >= PATIENCE and best_dice > 0.5:
                     print("No more update")
                     break
         wandb.log({"sum/train_loss": loss, "sum/dice_coef": dice, "parameter/lr" : optimizer.param_groups[0]['lr']}, step = epoch + 1)
+
+    for i in range(29):
+        print(f"{CLASSES[i]:<12}: {best_dices_per_class[i]:.4f} at epoch {best_dices_per_class_epoch[i]}")
+
+    wandb.finish()
+    
     return folder_name
 
 def save_best_model(model, folder_name):
@@ -112,3 +141,9 @@ def save_best_model(model, folder_name):
     if not os.path.isdir(output_path):                                                           
         os.mkdir(output_path)
     torch.save(model, output_path + '/best.pt')
+
+def save_best_class_model(model, folder_name, idx):
+    output_path = os.path.join(SAVED_DIR, folder_name) + '/best_class'
+    if not os.path.isdir(output_path):                                                           
+        os.mkdir(output_path)
+    torch.save(model, output_path + '/best_' + CLASSES[idx] + '.pt')
