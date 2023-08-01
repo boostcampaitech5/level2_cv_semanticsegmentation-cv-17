@@ -4,7 +4,7 @@
 
 ##### - X-ray 이미지에서 사람의 뼈를 Segmentation 하는 인공지능 만들기
 
-<img width="90%" src="https://github.com/boostcampaitech5/level2_cv_semanticsegmentation-cv-17/assets/70469008/dd3261a4-82d1-4424-974a-8f8f383d1158"/>
+<img src="https://github.com/boostcampaitech5/level2_cv_semanticsegmentation-cv-17/assets/70469008/dd3261a4-82d1-4424-974a-8f8f383d1158"/>
 
 뼈는 우리 몸의 구조와 기능에 중요한 영향을 미치기 때문에, 정확한 뼈 분할은 의료 진단 및 치료 계획을 개발하는 데 필수적입니다.
 
